@@ -12,13 +12,18 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# Load Model
+# Load Model & Scaler
 # --------------------------------------------------
 @st.cache_resource
 def load_model():
     return joblib.load("delivery_time_model.pkl")
 
+@st.cache_resource
+def load_scaler():
+    return joblib.load("scaler.pkl")
+
 model = load_model()
+scaler = load_scaler()
 
 # --------------------------------------------------
 # Title & Description
@@ -38,46 +43,13 @@ st.divider()
 # --------------------------------------------------
 st.subheader("📥 Enter Order Details")
 
-distance = st.number_input(
-    "📍 Distance (km)",
-    min_value=0.1,
-    max_value=100.0,
-    value=5.0
-)
-
-weather = st.selectbox(
-    "🌦 Weather Condition",
-    ["Clear", "Rainy", "Foggy", "Stormy"]
-)
-
-traffic = st.selectbox(
-    "🚦 Traffic Level",
-    ["Low", "Medium", "High"]
-)
-
-time_of_day = st.selectbox(
-    "🕒 Time of Day",
-    ["Morning", "Afternoon", "Evening", "Night"]
-)
-
-prep_time = st.number_input(
-    "🍳 Preparation Time (minutes)",
-    min_value=1,
-    max_value=120,
-    value=15
-)
-
-vehicle = st.selectbox(
-    "🏍 Delivery Vehicle",
-    ["Bike", "Scooter", "Car"]
-)
-
-experience = st.number_input(
-    "🧑‍💼 Delivery Person Experience (years)",
-    min_value=0,
-    max_value=20,
-    value=2
-)
+distance = st.number_input("📍 Distance (km)", 0.1, 100.0, 5.0)
+weather = st.selectbox("🌦 Weather Condition", ["Clear", "Rainy", "Foggy", "Stormy"])
+traffic = st.selectbox("🚦 Traffic Level", ["Low", "Medium", "High"])
+time_of_day = st.selectbox("🕒 Time of Day", ["Morning", "Afternoon", "Evening", "Night"])
+prep_time = st.number_input("🍳 Preparation Time (minutes)", 1, 120, 15)
+vehicle = st.selectbox("🏍 Delivery Vehicle", ["Bike", "Scooter", "Car"])
+experience = st.number_input("🧑‍💼 Delivery Person Experience (years)", 0, 20, 2)
 
 # --------------------------------------------------
 # Manual Encoding (MUST match training)
@@ -87,7 +59,7 @@ traffic_map = {"Low": 0, "Medium": 1, "High": 2}
 time_map = {"Morning": 0, "Afternoon": 1, "Evening": 2, "Night": 3}
 vehicle_map = {"Bike": 0, "Scooter": 1, "Car": 2}
 
-input_data = np.array([[
+input_data = np.array([[  
     distance,
     weather_map[weather],
     traffic_map[traffic],
@@ -103,25 +75,22 @@ input_data = np.array([[
 st.divider()
 
 if st.button("🔮 Predict Delivery Time"):
-    prediction = model.predict(input_data)[0]   # prediction in minutes (float)
 
-    # Convert minutes to hours, minutes, seconds
+    # ✅ SCALE INPUT (THIS WAS MISSING)
+    input_scaled = scaler.transform(input_data)
+
+    prediction = model.predict(input_scaled)[0]  # prediction in minutes
+
+    # Convert minutes to hrs/min/sec
     total_seconds = int(prediction * 60)
-
     hours = total_seconds // 3600
     minutes = (total_seconds % 3600) // 60
     seconds = total_seconds % 60
 
     if hours > 0:
-        st.success(
-            f"🕒 Estimated Delivery Time: **{hours} hr {minutes} min {seconds} sec**"
-        )
-
+        st.success(f"🕒 Estimated Delivery Time: **{hours} hr {minutes} min {seconds} sec**")
     else:
-        st.success(
-            f"🕒 Estimated Delivery Time: **{minutes} min {seconds} sec**"
-        )
-    
+        st.success(f"🕒 Estimated Delivery Time: **{minutes} min {seconds} sec**")
 
 # --------------------------------------------------
 # Footer
